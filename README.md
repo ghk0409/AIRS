@@ -53,12 +53,15 @@ Prerequisites are Python 3.11+, `uv`, a Codex CLI login backed by a ChatGPT subs
 
 ```bash
 uv sync --extra dev
-read -rs 'JEV_API_KEY?Jev API key: '
-export JEV_API_KEY
+mkdir -p ~/.config/airs
+chmod 700 ~/.config/airs
+cp .env.example ~/.config/airs/.env
+chmod 600 ~/.config/airs/.env
+# Edit ~/.config/airs/.env and set JEV_API_KEY to your real key.
 uv run airs plan -p "Add a small unit test"
 ```
 
-`routing.jev.api_key_env: JEV_API_KEY` names the environment variable; it is not the secret value and can be committed. The two shell commands above enter the key without echoing it or putting it in shell history. Set it once per shell session, not once per task. Copy `airs.yaml` when provider model names or policy settings need customization. `AIRS_CONFIG` may point to another configuration file, and `routing.jev.api_key_env` may name a different environment variable. Never put the key value in YAML or a tracked file.
+`routing.jev.api_key_env: JEV_API_KEY` names the key; it is not the secret value and can be committed. Put the real key on the `JEV_API_KEY=` line of `~/.config/airs/.env`. AIRS reads this file automatically on every invocation, so a new terminal needs no `export` or `.zshrc` change. The file is outside Git repositories by default. AIRS checks the process environment first, then the target project's `.env`, then `~/.config/airs/.env` (or `$XDG_CONFIG_HOME/airs/.env`). A project `.env` is also supported, but add `.env` to that project's `.gitignore` and note that an agent working inside the project may be able to read it; the user-level file is safer. AIRS reads only the configured key and does not export file contents into agent subprocesses. Copy `airs.yaml` when provider model names or policy settings need customization. `AIRS_CONFIG` may point to another configuration file, and `routing.jev.api_key_env` may name a different variable. Never put the key value in YAML, `.env.example`, or a tracked file.
 
 The default Jev endpoint is the native Decisions endpoint at `https://www.jevai.org/api/v1/decisions`. The task title, objective, role, context, constraints, acceptance criteria, and risk hints are sent for ambiguous tasks. Do not place secrets or unrelated private data in those fields.
 

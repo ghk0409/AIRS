@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from urllib.parse import urlparse
 import json
 import os
+
+from dotenv import dotenv_values
 
 from ..models import JevAssessment, TaskContract
 
@@ -16,6 +19,17 @@ class JevError(RuntimeError):
 
 
 Transport = Callable[[str, dict[str, str], bytes, float], dict[str, Any]]
+
+
+def resolve_api_key(env_name: str, project_root: Path) -> str | None:
+    """Read only the configured Jev key; never export .env values to agent processes."""
+    if key := os.environ.get(env_name):
+        return key
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    for path in (project_root / ".env", config_home / "airs" / ".env"):
+        if path.is_file() and (key := dotenv_values(path, interpolate=False).get(env_name)):
+            return key
+    return None
 
 
 def _urlopen_transport(url: str, headers: dict[str, str], body: bytes, timeout: float) -> dict[str, Any]:
@@ -34,9 +48,12 @@ class JevClient:
 
     def assess(self, task: TaskContract) -> JevAssessment:
         env_name = str(self.config.get("api_key_env", "JEV_API_KEY"))
-        api_key = os.environ.get(env_name)
+        api_key = resolve_api_key(env_name, task.project_root)
         if not api_key:
-            raise JevError(f"Jev API key is not set in {env_name}")
+            raise JevError(
+                f"Jev API key {env_name} was not found in the environment, "
+                "project .env, or user config .env"
+            )
         endpoint = str(self.config["endpoint"])
         if urlparse(endpoint).scheme != "https":
             raise JevError("Jev endpoint must use HTTPS")
