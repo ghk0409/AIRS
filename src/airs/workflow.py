@@ -41,6 +41,11 @@ class Workflow:
                 status = "completed" if review.ok else "review_failed"
             else:
                 status = "completed"
+            if status == "completed" and task.verification.commands:
+                steps, checks_ok = self._verification_steps(task, dry_run)
+                record["steps"].extend(steps)
+                if not checks_ok:
+                    status = "verification_failed"
             history.finish(run_id, record, status)
             return record
         except Exception as exc:
@@ -73,40 +78,50 @@ class Workflow:
         history = RunHistory(task.project_root, str(self.config["history_dir"]))
         run_id, record = history.create(task.to_dict(), {}, "verify")
         try:
-            all_ok = True
-            for command_text in task.verification.commands:
-                command = shlex.split(command_text)
-                if not command:
-                    continue
-                if dry_run:
-                    step = {"command": command, "returncode": 0, "stdout": "", "stderr": "", "dry_run": True}
-                else:
-                    started = time.monotonic()
-                    completed = subprocess.run(
-                        command,
-                        cwd=task.project_root,
-                        text=True,
-                        capture_output=True,
-                        check=False,
-                    )
-                    step = {
-                        "command": command,
-                        "returncode": completed.returncode,
-                        "stdout": completed.stdout,
-                        "stderr": completed.stderr,
-                        "duration_seconds": time.monotonic() - started,
-                    }
-                step["name"] = "verification"
-                record["steps"].append(step)
-                all_ok = all_ok and step["returncode"] == 0
-                if not all_ok:
-                    break
+            steps, all_ok = self._verification_steps(task, dry_run)
+            record["steps"].extend(steps)
             history.finish(run_id, record, "completed" if all_ok else "failed")
             return record
         except Exception as exc:
             record["error"] = str(exc)
             history.finish(run_id, record, "failed")
             raise
+
+    @staticmethod
+    def _verification_steps(
+        task: TaskContract, dry_run: bool
+    ) -> tuple[list[dict[str, Any]], bool]:
+        steps: list[dict[str, Any]] = []
+        for command_text in task.verification.commands:
+            command = shlex.split(command_text)
+            if not command:
+                continue
+            if dry_run:
+                step: dict[str, Any] = {
+                    "command": command, "returncode": 0,
+                    "stdout": "", "stderr": "", "dry_run": True,
+                }
+            else:
+                started = time.monotonic()
+                completed = subprocess.run(
+                    command,
+                    cwd=task.project_root,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                step = {
+                    "command": command,
+                    "returncode": completed.returncode,
+                    "stdout": completed.stdout,
+                    "stderr": completed.stderr,
+                    "duration_seconds": time.monotonic() - started,
+                }
+            step["name"] = "verification"
+            steps.append(step)
+            if step["returncode"] != 0:
+                return steps, False
+        return steps, True
 
     def _reviewer_decision(
         self, primary: RouteDecision, provider: Provider | None = None

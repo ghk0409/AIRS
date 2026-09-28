@@ -5,6 +5,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 import json
+import uuid
 
 import yaml
 
@@ -61,6 +62,24 @@ class TaskContract:
     verification: VerificationSpec = field(default_factory=VerificationSpec)
     risk_hints: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_prompt(
+        cls, prompt: str, project_root: str | Path, role: str = "implementer"
+    ) -> "TaskContract":
+        objective = prompt.strip()
+        if not objective:
+            raise ContractError("prompt must not be empty")
+        if role not in ALLOWED_ROLES:
+            raise ContractError(f"unsupported role: {role}")
+        return cls(
+            id=f"adhoc-{uuid.uuid4().hex[:12]}",
+            title=objective.splitlines()[0][:80],
+            objective=objective,
+            project_root=Path(project_root).expanduser().resolve(),
+            role=role,
+            metadata={"source": "cli-prompt"},
+        )
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any], source: Path | None = None) -> "TaskContract":

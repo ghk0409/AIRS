@@ -53,11 +53,12 @@ Prerequisites are Python 3.11+, `uv`, a Codex CLI login backed by a ChatGPT subs
 
 ```bash
 uv sync --extra dev
-export JEV_API_KEY="..."
-uv run airs plan examples/task.yaml
+read -rs 'JEV_API_KEY?Jev API key: '
+export JEV_API_KEY
+uv run airs plan -p "Add a small unit test"
 ```
 
-Copy `airs.yaml` when provider model names or policy settings need customization. `AIRS_CONFIG` may point to another configuration file, and `routing.jev.api_key_env` may name a different environment variable. Never put the key value in YAML.
+`routing.jev.api_key_env: JEV_API_KEY` names the environment variable; it is not the secret value and can be committed. The two shell commands above enter the key without echoing it or putting it in shell history. Set it once per shell session, not once per task. Copy `airs.yaml` when provider model names or policy settings need customization. `AIRS_CONFIG` may point to another configuration file, and `routing.jev.api_key_env` may name a different environment variable. Never put the key value in YAML or a tracked file.
 
 The default Jev endpoint is the native Decisions endpoint at `https://www.jevai.org/api/v1/decisions`. The task title, objective, role, context, constraints, acceptance criteria, and risk hints are sent for ambiguous tasks. Do not place secrets or unrelated private data in those fields.
 
@@ -89,6 +90,18 @@ Supported roles are `implementer`, `planner`, `reviewer`, `tester`, `debugger`, 
 
 ## CLI
 
+For day-to-day use, install the command once from this repository, then run it inside the repository you want to change:
+
+```bash
+uv tool install .
+cd /path/to/target-repository
+airs run -p "Add a regression test for the login bug" --verify-cmd "git diff --check"
+```
+
+The inline request creates a temporary Task Contract in memory using the current directory as `project_root`. `run` plans the route, runs the selected agent, performs any policy-required cross-model review, and runs configured verification commands. `--verify-cmd` can be repeated. The key environment variable remains available to AIRS but is removed from the subprocess environments of Codex and agy. Add `.airs/` to the target repository's `.gitignore` because run history is stored there.
+
+Use `airs plan -p "..."` to inspect routing without running an agent. `airs run -p "..." --dry-run` shows the planned commands. For projects outside the current directory, pass `--root /path/to/project` with `-p`. A detailed Task Contract file is optional and remains useful for repeatable work, constraints, acceptance criteria, and shared verification rules. `examples/task.yaml` demonstrates the format; its README typo request is not tied to a known typo, so create a real task before running it.
+
 ```bash
 uv run airs plan TASK.yaml
 uv run airs run TASK.yaml
@@ -99,7 +112,7 @@ uv run airs status --root /path/to/project
 
 `plan`, `run`, and `review` accept `--provider codex|antigravity`, `--tier light|medium|high|ultra`, and `--no-review`. Provider and tier mappings live in `airs.yaml`. A lower tier or `--no-review` cannot weaken a high-risk policy minimum. Use `--dry-run` with `run`, `review`, or `verify` to inspect behavior without invoking an agent or verification command.
 
-`run` executes the selected provider and, when required, invokes the other provider in read-only/plan mode for independent review. `verify` runs Task Contract commands directly without a shell. Each operation records its decision, command, result, output, and timing under the target project's `.airs/history/`; this directory may contain sensitive task output and is ignored by the included `.gitignore`.
+`run` executes the selected provider and, when required, invokes the other provider in read-only/plan mode for independent review. It then runs Task Contract verification commands and any `--verify-cmd` arguments. `verify` reruns Task Contract commands directly without a shell. Each operation records its decision, command, result, output, and timing under the target project's `.airs/history/`; this directory may contain sensitive task output and is ignored only when the target repository excludes it.
 
 ## What is included
 
