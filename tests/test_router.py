@@ -19,7 +19,7 @@ def test_router_maps_jev_signal_to_provider_model() -> None:
     decision = router.plan(TaskContract("t", "Feature", "Add profile caching", Path.cwd()))
     assert decision.tier == ModelTier.HIGH
     assert decision.provider == Provider.CODEX
-    assert decision.model == "gpt-5.6-sol"
+    assert decision.model == "gpt-6-sol"
     assert decision.reviewer == Provider.ANTIGRAVITY
 
 

@@ -26,19 +26,19 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "codex": {
             "command": ["codex", "exec"],
             "tiers": {
-                "light": {"model": "gpt-5.6-luna", "effort": "low"},
-                "medium": {"model": "gpt-5.6-terra", "effort": "medium"},
-                "high": {"model": "gpt-5.6-sol", "effort": "high"},
+                "light": {"model": "gpt-6-luna", "effort": "low"},
+                "medium": {"model": "gpt-6-sol", "effort": "medium"},
+                "high": {"model": "gpt-6-sol", "effort": "high"},
                 "ultra": {"model": "gpt-6-astra", "effort": "xhigh"},
             },
         },
         "antigravity": {
             "command": ["agy", "--print"],
             "tiers": {
-                "light": {"model": "gemini-3-flash", "effort": "low"},
-                "medium": {"model": "gemini-3.1-pro", "effort": "medium"},
-                "high": {"model": "gemini-3.1-pro", "effort": "high"},
-                "ultra": {"model": "gemini-3.1-pro", "effort": "high"},
+                "light": {"model": "gemini-3.8-flash-low", "effort": "low"},
+                "medium": {"model": "gemini-3.8-flash-medium", "effort": "medium"},
+                "high": {"model": "gemini-3.8-flash-high", "effort": "high"},
+                "ultra": {"model": "gemini-3.8-flash-high", "effort": "high"},
             },
         },
     },

@@ -36,6 +36,17 @@ Jev assessment                          │
 
 Jev is a decision signal only. It never executes an agent or bypasses policy. The policy engine maps the abstract `light`, `medium`, `high`, and `ultra` tiers to provider-specific model and reasoning settings.
 
+The current default mapping is:
+
+| Tier | Codex | Antigravity |
+|---|---|---|
+| light | `gpt-6-luna` / low | `gemini-3.8-flash-low` |
+| medium | `gpt-6-sol` / medium | `gemini-3.8-flash-medium` |
+| high | `gpt-6-sol` / high | `gemini-3.8-flash-high` |
+| ultra | `gpt-6-astra` / xhigh | `gemini-3.8-flash-high` |
+
+Antigravity currently lists effort-specific model IDs, so its model and `--effort` settings are kept in sync. Its highest available Gemini 3.8 Flash effort is high. Adjust the YAML mapping if an account exposes a different model catalog.
+
 ## Install and configure
 
 Prerequisites are Python 3.11+, `uv`, a Codex CLI login backed by a ChatGPT subscription, and an `agy` login backed by the user's Google subscription. Configure those CLIs directly; AIRS does not accept or store OpenAI/Gemini API keys. The adapter process explicitly removes common OpenAI, Gemini, Google, and Jev developer-key variables while preserving normal CLI login state.
