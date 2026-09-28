@@ -1,0 +1,19 @@
+version: "0.1"
+project: "{{PROJECT_NAME}}"
+profile: "{{PROFILE_NAME_OR_NONE}}"
+organization_standard: "{{STANDARD_VERSION_OR_COMMIT}}"
+workspace: "{{WORKSPACE_PATH_OR_NONE}}"
+
+paths:
+  router: "AGENTS.md"
+  current: "tasks/CURRENT.md"
+  active_specs: "specs/active/"
+  archived_specs: "specs/archive/"
+  architecture: "docs/ARCHITECTURE.md"
+  adrs: "docs/adr/"
+  skills: ".agents/skills/"
+
+context:
+  workspace_on_demand: true
+  other_repositories_on_demand: true
+  relevant_source_file_target: 15

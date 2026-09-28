@@ -1,0 +1,12 @@
+version: "0.1"
+name: "{{ORGANIZATION_NAME}}"
+maintainers:
+  - "{{TEAM_OR_OWNER}}"
+canonical:
+  standards: "standards/"
+  profiles: "profiles/"
+  skills: ".agents/skills/"
+distribution:
+  strategy: "reviewed-copy-or-sync"
+  submodules_by_default: false
+security_policy: "standards/SECURITY.md"

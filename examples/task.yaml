@@ -1,0 +1,15 @@
+id: docs-001
+title: Fix a README typo
+objective: Correct the spelling mistake in README.md without changing its meaning.
+project_root: ..
+role: implementer
+constraints:
+  - Do not change unrelated files.
+acceptance_criteria:
+  - The typo is corrected.
+verification:
+  commands:
+    - uv run pytest
+  criteria:
+    - Existing tests still pass.
+risk_hints: []

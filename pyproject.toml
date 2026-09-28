@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "airs-orchestrator"
+version = "0.3.2"
+description = "Subscription-backed local agent orchestration with hybrid rule/Jev routing"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["PyYAML>=6.0.2,<7"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3,<9"]
+
+[project.scripts]
+airs = "airs.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/airs"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

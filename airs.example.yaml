@@ -1,0 +1,63 @@
+version: "0.3.2"
+
+organization:
+  name: "{{ORGANIZATION_NAME}}"
+  standards_repository: "{{STANDARDS_REPOSITORY_URL_OR_PATH}}"
+
+defaults:
+  canonical_skill_directory: ".agents/skills"
+  profile: "python-fastapi"
+  context_budget:
+    agents_tokens: 1500
+    current_tokens: 1000
+    task_tokens: 5000
+    relevant_source_files: 15
+
+context:
+  progressive_loading: true
+  workspace_on_demand: true
+  exclude_by_default:
+    - "node_modules/"
+    - "dist/"
+    - "build/"
+    - "coverage/"
+    - "generated/"
+    - "vendor/"
+    - "large fixtures and logs"
+
+handoff:
+  durable_state: "tasks/CURRENT.md"
+  require_verification_status: true
+  require_next_action: true
+
+adapters:
+  canonical: ".agents/skills"
+  strategy: "copy-or-sync"
+
+history_dir: ".airs/history"
+
+routing:
+  default_provider: "codex"
+  confidence_threshold: 0.72
+  jev:
+    enabled: true
+    endpoint: "https://www.jevai.org/api/v1/decisions"
+    api_key_env: "JEV_API_KEY"
+    timeout_seconds: 10
+    model: null
+
+providers:
+  codex:
+    command: ["codex", "exec"]
+    tiers:
+      light: {model: "gpt-5.6-luna", effort: "low"}
+      medium: {model: "gpt-5.6-terra", effort: "medium"}
+      high: {model: "gpt-5.6-sol", effort: "high"}
+      ultra: {model: "gpt-6-astra", effort: "xhigh"}
+  antigravity:
+    command: ["agy", "--print"]
+    tiers:
+      light: {model: "gemini-3-flash", effort: "low"}
+      medium: {model: "gemini-3.1-pro", effort: "medium"}
+      high: {model: "gemini-3.1-pro", effort: "high"}
+      ultra: {model: "gemini-3.1-pro", effort: "high"}

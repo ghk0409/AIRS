@@ -1,0 +1,20 @@
+version: "0.1"
+name: "{{WORKSPACE_NAME}}"
+
+repositories:
+  {{REPOSITORY_ID}}:
+    path: "{{RELATIVE_PATH}}"
+    profile: "{{PROFILE_NAME}}"
+    purpose: "{{SHORT_PURPOSE}}"
+    owns:
+      - "{{CAPABILITY_OR_DATA}}"
+
+relationships:
+  - from: "{{CALLER_REPOSITORY_ID}}"
+    to: "{{DEPENDENCY_REPOSITORY_ID}}"
+    contract: "{{API_EVENT_SCHEMA_OR_OPERATIONAL_DEPENDENCY}}"
+    documentation: "{{OPTIONAL_RELATIVE_DOC_PATH}}"
+
+context:
+  load_workspace_by_default: false
+  load_other_repositories_by_default: false

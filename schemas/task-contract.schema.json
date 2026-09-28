@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://airs.local/schemas/task-contract.schema.json",
+  "title": "AIRS Task Contract v0.3.2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "objective", "project_root"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "title": {"type": "string", "minLength": 1},
+    "objective": {"type": "string", "minLength": 1},
+    "project_root": {"type": "string", "minLength": 1},
+    "role": {"type": "string", "enum": ["implementer", "planner", "reviewer", "tester", "debugger", "security-reviewer"]},
+    "context": {"type": "array", "items": {"type": "string"}},
+    "constraints": {"type": "array", "items": {"type": "string"}},
+    "acceptance_criteria": {"type": "array", "items": {"type": "string"}},
+    "risk_hints": {"type": "array", "items": {"type": "string"}},
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "commands": {"type": "array", "items": {"type": "string"}},
+        "criteria": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "metadata": {"type": "object"}
+  }
+}

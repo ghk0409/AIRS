@@ -1,0 +1,11 @@
+version: "0.1"
+owner: "{{YOUR_NAME_OR_HANDLE}}"
+canonical_skill_directory: "{{GLOBAL_SKILL_DIRECTORY}}"
+defaults:
+  progressive_loading: true
+  concise_completion_report: true
+  handoff_file: "tasks/CURRENT.md"
+do_not_store:
+  - "organization-specific architecture"
+  - "repository-specific commands"
+  - "credentials or sensitive data"
