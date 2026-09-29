@@ -26,9 +26,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "codex": {
             "command": ["codex", "exec"],
             "tiers": {
-                "light": {"model": "gpt-6-luna", "effort": "low"},
-                "medium": {"model": "gpt-6-sol", "effort": "medium"},
-                "high": {"model": "gpt-6-sol", "effort": "high"},
+                "light": {"model": "gpt-5.6-luna", "effort": "low"},
+                "medium": {"model": "gpt-5.6-terra", "effort": "medium"},
+                "high": {"model": "gpt-5.6-sol", "effort": "high"},
                 "ultra": {"model": "gpt-6-astra", "effort": "xhigh"},
             },
         },

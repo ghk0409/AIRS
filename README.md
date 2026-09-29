@@ -40,12 +40,14 @@ The current default mapping is:
 
 | Tier | Codex | Antigravity |
 |---|---|---|
-| light | `gpt-6-luna` / low | `gemini-3.8-flash-low` |
-| medium | `gpt-6-sol` / medium | `gemini-3.8-flash-medium` |
-| high | `gpt-6-sol` / high | `gemini-3.8-flash-high` |
+| light | `gpt-5.6-luna` / low | `gemini-3.8-flash-low` |
+| medium | `gpt-5.6-terra` / medium | `gemini-3.8-flash-medium` |
+| high | `gpt-5.6-sol` / high | `gemini-3.8-flash-high` |
 | ultra | `gpt-6-astra` / xhigh | `gemini-3.8-flash-high` |
 
 Antigravity currently lists effort-specific model IDs, so its model and `--effort` settings are kept in sync. Its highest available Gemini 3.8 Flash effort is high. Adjust the YAML mapping if an account exposes a different model catalog.
+
+Codex model availability varies by ChatGPT account and rollout. The default light–high mapping uses the GPT-5.6 family for accounts where GPT-6 Luna and Sol are not yet enabled; ultra keeps GPT-6 Astra where available. Check the Codex CLI `/model` picker before changing these mappings for your account.
 
 ## Install and configure
 

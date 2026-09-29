@@ -17,11 +17,17 @@ def test_provider_tiers_match_runnable_and_example_configs() -> None:
 
 
 def test_current_model_mapping() -> None:
+    assert provider_tier(DEFAULT_CONFIG, "codex", "light") == {
+        "model": "gpt-5.6-luna", "effort": "low"
+    }
     assert provider_tier(DEFAULT_CONFIG, "codex", "medium") == {
-        "model": "gpt-6-sol", "effort": "medium"
+        "model": "gpt-5.6-terra", "effort": "medium"
     }
     assert provider_tier(DEFAULT_CONFIG, "codex", "high") == {
-        "model": "gpt-6-sol", "effort": "high"
+        "model": "gpt-5.6-sol", "effort": "high"
+    }
+    assert provider_tier(DEFAULT_CONFIG, "codex", "ultra") == {
+        "model": "gpt-6-astra", "effort": "xhigh"
     }
     for tier, effort in (("light", "low"), ("medium", "medium"), ("high", "high"), ("ultra", "high")):
         assert provider_tier(DEFAULT_CONFIG, "antigravity", tier) == {
