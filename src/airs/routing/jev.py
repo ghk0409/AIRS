@@ -58,6 +58,7 @@ class JevClient:
         if urlparse(endpoint).scheme != "https":
             raise JevError("Jev endpoint must use HTTPS")
         payload: dict[str, Any] = {
+            "model": str(self.config.get("model") or "jev-latest"),
             "state": {
                 "title": task.title,
                 "objective": task.objective,
@@ -118,23 +119,16 @@ class JevClient:
                 },
             },
         }
-        if self.config.get("model"):
-            payload["model"] = self.config["model"]
         encoded = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        if len(encoded) > 32 * 1024:
-            raise JevError("Jev payload exceeds the 32 KiB service limit")
         response = self.transport(
             endpoint,
             {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             encoded,
             float(self.config.get("timeout_seconds", 10)),
         )
-        if response.get("code") != 0 or not isinstance(response.get("data"), dict):
-            raise JevError(f"Jev returned an error: {response.get('message', 'invalid response')}")
-        data = response["data"]
-        answers = data.get("answers", data)
+        answers = response.get("answers")
         if not isinstance(answers, dict):
-            raise JevError("Jev response does not contain answers")
+            raise JevError("TypeSafe response does not contain answers")
         task_type, c1 = _choice(answers, "task_type")
         complexity, c2 = _choice(answers, "complexity")
         risk, c3 = _choice(answers, "risk")

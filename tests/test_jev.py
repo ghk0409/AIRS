@@ -2,8 +2,11 @@ from pathlib import Path
 import json
 import os
 
+import pytest
+
+from airs.config import DEFAULT_CONFIG
 from airs.models import TaskContract
-from airs.routing.jev import JevClient, resolve_api_key
+from airs.routing.jev import JevClient, JevError, resolve_api_key
 
 
 def test_jev_parses_typed_answers(monkeypatch) -> None:
@@ -13,28 +16,47 @@ def test_jev_parses_typed_answers(monkeypatch) -> None:
     def transport(url, headers, body, timeout):
         captured.update(url=url, headers=headers, body=json.loads(body), timeout=timeout)
         return {
-            "code": 0,
-            "message": "ok",
-            "data": {"answers": {
-                "task_type": {"choice": "implementation", "confidence": 0.91},
-                "complexity": {"choice": "medium", "confidence": 0.90},
-                "risk": {"choice": "low", "confidence": 0.89},
-                "reasoning_need": {"choice": "medium", "confidence": 0.88},
-                "review_need": {"noul": 0.74, "confidence": 0.82}
-            }},
+            "model": "jev-latest",
+            "answers": {
+                "task_type": {"type": "choice", "choice": "implementation", "confidence": 0.91},
+                "complexity": {"type": "choice", "choice": "medium", "confidence": 0.90},
+                "risk": {"type": "choice", "choice": "low", "confidence": 0.89},
+                "reasoning_need": {"type": "choice", "choice": "medium", "confidence": 0.88},
+                "review_need": {"type": "noul", "noul": 0.74},
+            },
+            "usage": {"input_tokens": 100, "output_tokens": 5},
         }
 
     client = JevClient({
-        "endpoint": "https://www.jevai.org/api/v1/decisions",
+        "endpoint": "https://api.typesafe.ai/v1/systemone",
         "api_key_env": "JEV_API_KEY",
         "timeout_seconds": 3,
+        "model": "jev-latest",
     }, transport)
     assessment = client.assess(TaskContract("t", "T", "Build it", Path.cwd()))
     assert assessment.complexity == "medium"
     assert assessment.review_need is True
-    assert assessment.confidence == 0.82
+    assert assessment.confidence == 0.74
     assert captured["headers"]["Authorization"] == "Bearer test-only"
+    assert captured["url"] == "https://api.typesafe.ai/v1/systemone"
+    assert captured["body"]["model"] == "jev-latest"
     assert "task_type" in captured["body"]["questions"]
+
+
+def test_default_config_uses_typesafe() -> None:
+    jev = DEFAULT_CONFIG["routing"]["jev"]
+    assert jev["endpoint"] == "https://api.typesafe.ai/v1/systemone"
+    assert jev["model"] == "jev-latest"
+
+
+def test_jev_rejects_old_gateway_response(monkeypatch) -> None:
+    monkeypatch.setenv("JEV_API_KEY", "test-only")
+    client = JevClient(
+        {"endpoint": "https://api.typesafe.ai/v1/systemone"},
+        lambda *_args: {"code": 0, "data": {"answers": {}}},
+    )
+    with pytest.raises(JevError, match="TypeSafe response does not contain answers"):
+        client.assess(TaskContract("t", "T", "Build it", Path.cwd()))
 
 
 def test_jev_key_from_global_dotenv(tmp_path: Path, monkeypatch) -> None:
@@ -53,17 +75,18 @@ def test_jev_key_from_global_dotenv(tmp_path: Path, monkeypatch) -> None:
     def transport(_url, headers, _body, _timeout):
         headers_seen.update(headers)
         return {
-            "code": 0,
-            "data": {"answers": {
+            "model": "jev-latest",
+            "answers": {
                 "task_type": {"choice": "implementation", "confidence": 0.9},
                 "complexity": {"choice": "medium", "confidence": 0.9},
                 "risk": {"choice": "low", "confidence": 0.9},
                 "reasoning_need": {"choice": "medium", "confidence": 0.9},
-                "review_need": {"noul": 0.2, "confidence": 0.9},
-            }},
+                "review_need": {"noul": 0.2},
+            },
+            "usage": {"input_tokens": 100, "output_tokens": 5},
         }
 
-    client = JevClient({"endpoint": "https://www.jevai.org/api/v1/decisions"}, transport)
+    client = JevClient({"endpoint": "https://api.typesafe.ai/v1/systemone"}, transport)
     client.assess(TaskContract("t", "T", "Build it", tmp_path / "project"))
     assert headers_seen["Authorization"] == "Bearer global-test-key"
 

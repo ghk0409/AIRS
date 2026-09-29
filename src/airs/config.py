@@ -16,10 +16,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "confidence_threshold": 0.72,
         "jev": {
             "enabled": True,
-            "endpoint": "https://www.jevai.org/api/v1/decisions",
+            "endpoint": "https://api.typesafe.ai/v1/systemone",
             "api_key_env": "JEV_API_KEY",
             "timeout_seconds": 10,
-            "model": None,
+            "model": "jev-latest",
         },
     },
     "providers": {
