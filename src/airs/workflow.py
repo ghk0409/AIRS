@@ -12,6 +12,7 @@ from .config import provider_tier
 from .history import RunHistory
 from .models import Provider, RouteDecision, TaskContract
 from .prompts import review_prompt, task_prompt
+from .review_scope import changed_files, changed_since, file_hashes, selected_files, snapshot_changed_files
 
 
 class Workflow:
@@ -23,11 +24,17 @@ class Workflow:
         task: TaskContract,
         decision: RouteDecision,
         dry_run: bool = False,
-        progress: Callable[[str, float], None] | None = None,
+        progress: Callable[..., None] | None = None,
     ) -> dict[str, Any]:
         history = RunHistory(task.project_root, str(self.config["history_dir"]))
         run_id, record = history.create(task.to_dict(), decision.to_dict(), "run")
         try:
+            before = None
+            if not dry_run:
+                try:
+                    before = snapshot_changed_files(task.project_root)
+                except ValueError:
+                    pass
             primary = adapter_for(decision.provider, self.config).execute(
                 decision, task.project_root, task_prompt(task), dry_run=dry_run,
                 progress=(lambda elapsed: progress("primary", elapsed)) if progress else None,
@@ -36,25 +43,40 @@ class Workflow:
             if not primary.ok:
                 history.finish(run_id, record, "failed")
                 return record
+            if dry_run:
+                review_files = ["<changed files from primary run>"]
+            else:
+                try:
+                    review_files = changed_since(task.project_root, before) if before is not None else changed_files(task.project_root)
+                except ValueError as exc:
+                    review_files = []
+                    record["review_error"] = str(exc)
+            record["review_files"] = review_files
+            if not dry_run:
+                record["review_file_hashes"] = file_hashes(task.project_root, review_files)
             if decision.review and decision.reviewer:
-                reviewer_decision = self._reviewer_decision(decision)
-                review = adapter_for(decision.reviewer, self.config).execute(
-                    reviewer_decision,
-                    task.project_root,
-                    review_prompt(task),
-                    review=True,
-                    dry_run=dry_run,
-                    progress=(lambda elapsed: progress("cross_model_review", elapsed)) if progress else None,
-                )
-                record["steps"].append({"name": "cross_model_review", **review.to_dict()})
-                status = "completed" if review.ok else "review_failed"
+                if not review_files or len(review_files) > self._max_review_files():
+                    record["review_error"] = record.get("review_error") or (
+                        "no changed files to review" if not review_files else
+                        f"{len(review_files)} changed files exceed review limit {self._max_review_files()}"
+                    )
+                    status = "review_failed"
+                else:
+                    reviewer_decision = self._reviewer_decision(decision)
+                    review = adapter_for(decision.reviewer, self.config).execute(
+                        reviewer_decision, task.project_root, review_prompt(task, review_files),
+                        review=True, dry_run=dry_run,
+                        progress=(lambda elapsed, metrics=None: progress("cross_model_review", elapsed, metrics)) if progress else None,
+                    )
+                    record["steps"].append({"name": "cross_model_review", **review.to_dict()})
+                    status = "completed" if review.ok else "review_failed"
             else:
                 status = "completed"
-            if status == "completed" and task.verification.commands:
+            if task.verification.commands:
                 steps, checks_ok = self._verification_steps(task, dry_run)
                 record["steps"].extend(steps)
                 if not checks_ok:
-                    status = "verification_failed"
+                    status = "review_and_verification_failed" if status == "review_failed" else "verification_failed"
             history.finish(run_id, record, status)
             return record
         except Exception as exc:
@@ -68,7 +90,9 @@ class Workflow:
         decision: RouteDecision,
         provider: Provider | None,
         dry_run: bool = False,
-        progress: Callable[[str, float], None] | None = None,
+        progress: Callable[..., None] | None = None,
+        files: list[str] | None = None,
+        source_run_id: str | None = None,
     ) -> dict[str, Any]:
         reviewer = provider or (
             Provider.ANTIGRAVITY if decision.provider == Provider.CODEX else Provider.CODEX
@@ -77,9 +101,17 @@ class Workflow:
         history = RunHistory(task.project_root, str(self.config["history_dir"]))
         run_id, record = history.create(task.to_dict(), review_decision.to_dict(), "review")
         try:
+            review_files = selected_files(task.project_root, files) if files is not None else changed_files(task.project_root)
+            if not review_files:
+                raise ValueError("no changed files to review; use --file")
+            if len(review_files) > self._max_review_files():
+                raise ValueError(f"{len(review_files)} changed files exceed review limit {self._max_review_files()}; use --file")
+            record["review_files"] = review_files
+            if source_run_id:
+                record["source_run_id"] = source_run_id
             result = adapter_for(reviewer, self.config).execute(
-                review_decision, task.project_root, review_prompt(task), review=True, dry_run=dry_run,
-                progress=(lambda elapsed: progress("review", elapsed)) if progress else None,
+                review_decision, task.project_root, review_prompt(task, review_files), review=True, dry_run=dry_run,
+                progress=(lambda elapsed, metrics=None: progress("review", elapsed, metrics)) if progress else None,
             )
             record["steps"].append({"name": "review", **result.to_dict()})
             history.finish(run_id, record, "completed" if result.ok else "failed")
@@ -88,6 +120,9 @@ class Workflow:
             record["error"] = str(exc)
             history.finish(run_id, record, "failed")
             raise
+
+    def _max_review_files(self) -> int:
+        return max(1, int(self.config.get("review", {}).get("max_files", 12)))
 
     def verify(self, task: TaskContract, dry_run: bool = False) -> dict[str, Any]:
         history = RunHistory(task.project_root, str(self.config["history_dir"]))

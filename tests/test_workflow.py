@@ -53,7 +53,33 @@ def test_review_reports_soft_denied_agent_as_failed(tmp_path: Path, monkeypatch)
         Provider.CODEX, ModelTier.MEDIUM, True, Provider.ANTIGRAVITY,
         "implementer", "test", [], model="gpt-test", effort="medium",
     )
-    record = Workflow(DEFAULT_CONFIG).review(task, route, Provider.ANTIGRAVITY)
+    (tmp_path / "README.md").write_text("Review me\n", encoding="utf-8")
+    record = Workflow(DEFAULT_CONFIG).review(task, route, Provider.ANTIGRAVITY, files=["README.md"])
     assert record["status"] == "failed"
     assert record["steps"][0]["returncode"] == 0
     assert record["steps"][0]["ok"] is False
+
+
+def test_run_verifies_even_when_cross_review_fails(tmp_path: Path, monkeypatch) -> None:
+    class FakeAgent:
+        def __init__(self, provider):
+            self.provider = provider
+
+        def execute(self, *args, **kwargs):
+            if self.provider == Provider.CODEX:
+                return AgentResult("codex", ["codex"], 0, "done", "", 0.0)
+            return AgentResult("antigravity", ["agy"], 0, "", "timeout", 1.0, error="timed out")
+
+    monkeypatch.setattr("airs.workflow.adapter_for", lambda provider, config: FakeAgent(provider))
+    monkeypatch.setattr("airs.workflow.snapshot_changed_files", lambda root: {})
+    monkeypatch.setattr("airs.workflow.changed_since", lambda root, before: ["README.md"])
+    (tmp_path / "README.md").write_text("Updated\n", encoding="utf-8")
+    task = TaskContract("t", "T", "Do work", tmp_path)
+    task.verification.commands = [f"{sys.executable} -c 'print(1)'" ]
+    route = RouteDecision(
+        Provider.CODEX, ModelTier.MEDIUM, True, Provider.ANTIGRAVITY,
+        "implementer", "test", [], model="gpt-test", effort="medium",
+    )
+    record = Workflow(DEFAULT_CONFIG).run(task, route)
+    assert record["status"] == "review_failed"
+    assert [step["name"] for step in record["steps"]] == ["primary", "cross_model_review", "verification"]

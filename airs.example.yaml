@@ -1,4 +1,4 @@
-version: "0.3.2"
+version: "0.4.0"
 
 organization:
   name: "{{ORGANIZATION_NAME}}"
@@ -35,6 +35,9 @@ adapters:
   strategy: "copy-or-sync"
 
 history_dir: ".airs/history"
+history_retention_days: 30
+review:
+  max_files: 12
 
 routing:
   default_provider: "codex"
@@ -57,6 +60,8 @@ providers:
   antigravity:
     command: ["agy"]
     review_timeout_seconds: 120
+    review_max_tool_calls: 20
+    review_max_input_tokens: 120000
     tiers:
       light: {model: "gemini-3.8-flash-low", effort: "low"}
       medium: {model: "gemini-3.8-flash-medium", effort: "medium"}

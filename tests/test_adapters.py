@@ -1,4 +1,5 @@
 from pathlib import Path
+from io import StringIO
 import sys
 
 from airs.adapters.antigravity import AntigravityAdapter
@@ -53,7 +54,7 @@ def test_antigravity_rejects_soft_denied_empty_review(monkeypatch, tmp_path: Pat
             "permission denied", 1.0,
         )
 
-    monkeypatch.setattr(AgentAdapter, "execute", fake_execute)
+    monkeypatch.setattr(AntigravityAdapter, "_execute_review_stream", fake_execute)
     result = AntigravityAdapter({}).execute(
         decision(Provider.ANTIGRAVITY), tmp_path, "review", review=True
     )
@@ -69,7 +70,7 @@ def test_antigravity_extracts_successful_response(monkeypatch, tmp_path: Path) -
             "", 1.0,
         )
 
-    monkeypatch.setattr(AgentAdapter, "execute", fake_execute)
+    monkeypatch.setattr(AntigravityAdapter, "_execute_review_stream", fake_execute)
     result = AntigravityAdapter({}).execute(
         decision(Provider.ANTIGRAVITY), tmp_path, "review", review=True
     )
@@ -81,12 +82,45 @@ def test_antigravity_rejects_empty_response_without_denial(monkeypatch, tmp_path
     def fake_execute(self, *args, **kwargs):
         return AgentResult("antigravity", ["agy"], 0, '{"status":"SUCCESS","response":" "}', "", 1.0)
 
-    monkeypatch.setattr(AgentAdapter, "execute", fake_execute)
+    monkeypatch.setattr(AntigravityAdapter, "_execute_review_stream", fake_execute)
     result = AntigravityAdapter({}).execute(
         decision(Provider.ANTIGRAVITY), tmp_path, "review", review=True
     )
     assert not result.ok
     assert result.error == "Antigravity returned an empty response"
+
+
+def test_antigravity_stream_tracks_file_reads_and_returns_response(monkeypatch, tmp_path: Path) -> None:
+    class FakeProcess:
+        stdout = StringIO(
+            '{"event":"step_update","step_update":{"state":"DONE","step_type":"tool","tool_name":"view_file","usage":{"input_tokens":123}}}\n'
+            '{"event":"result","result":{"status":"SUCCESS","response":"No findings.","denied_actions":[]}}\n'
+        )
+        stderr = StringIO("")
+        returncode = 0
+
+        def poll(self):
+            return 0
+
+    monkeypatch.setattr("airs.adapters.antigravity.shutil.which", lambda name: "/bin/agy")
+    monkeypatch.setattr("airs.adapters.antigravity.subprocess.Popen", lambda *args, **kwargs: FakeProcess())
+    result = AntigravityAdapter({}).execute(decision(Provider.ANTIGRAVITY), tmp_path, "review", review=True)
+    assert result.ok
+    assert result.response == "No findings."
+    assert result.metrics == {"tool_calls": 1, "file_reads": 1, "input_tokens": 123}
+
+
+def test_antigravity_reports_timeout_instead_of_empty_response(monkeypatch, tmp_path: Path) -> None:
+    def fake_execute(self, *args, **kwargs):
+        return AgentResult(
+            "antigravity", ["agy"], 0, '{"status":"SUCCESS","response":""}',
+            "[agy] print timeout after 2m0s with turn in progress", 120.0,
+        )
+
+    monkeypatch.setattr(AntigravityAdapter, "_execute_review_stream", fake_execute)
+    result = AntigravityAdapter({}).execute(decision(Provider.ANTIGRAVITY), tmp_path, "review", review=True)
+    assert not result.ok
+    assert result.error == "Antigravity review timed out before producing a final response"
 
 
 class SlowAdapter(AgentAdapter):

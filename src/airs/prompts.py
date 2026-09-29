@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from .models import TaskContract
 
 
@@ -34,8 +36,14 @@ def task_prompt(task: TaskContract, role: str | None = None) -> str:
     return "\n\n".join(sections)
 
 
-def review_prompt(task: TaskContract) -> str:
+def review_prompt(task: TaskContract, files: list[str]) -> str:
+    if not files:
+        raise ValueError("review requires changed files or explicit --file paths")
+    listed = "\n".join(f"- {json.dumps(name, ensure_ascii=False)}" for name in files)
     return task_prompt(task, "reviewer") + (
-        "\n\nReview the current working tree after the primary agent's work. "
-        "Prioritize correctness, regressions, security, and missing tests."
+        "\n\nReview only these files changed by the primary work:\n"
+        f"{listed}\n"
+        "Do not scan the entire repository. Inspect at most three directly related "
+        "reference files if needed. Prioritize concrete correctness, regression, "
+        "security, and missing-test findings. State 'No findings' if none."
     )

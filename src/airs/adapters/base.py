@@ -24,6 +24,7 @@ class AgentResult:
     dry_run: bool = False
     response: str | None = None
     error: str | None = None
+    metrics: dict[str, Any] | None = None
 
     @property
     def ok(self) -> bool:
@@ -40,6 +41,7 @@ class AgentResult:
             "dry_run": self.dry_run,
             "response": self.response,
             "error": self.error,
+            "metrics": self.metrics,
             "ok": self.ok,
         }
 

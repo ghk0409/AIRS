@@ -1,4 +1,6 @@
-# AIRS v0.3.2
+# AIRS v0.4.0
+
+[한국어 README](README.ko.md)
 
 AIRS (AI-native Repository Standard) combines the original agent-agnostic repository convention with a local CLI that routes work to subscription-backed Codex and Antigravity agents. It does not call the OpenAI or Gemini developer APIs.
 
@@ -6,9 +8,9 @@ Its central rule is:
 
 > Context belongs to the narrowest scope that owns it.
 
-The repository is the source of truth. Chat history is temporary working context, not project memory. The v0.1 standard remains the compatibility baseline; v0.3.2 adds orchestration without weakening those rules.
+The repository is the source of truth. Chat history is temporary working context, not project memory. The v0.1 standard remains the compatibility baseline; v0.4.0 adds bounded review and operational checks without weakening those rules.
 
-## v0.3.2 orchestration
+## Orchestration
 
 ```text
 Task Contract
@@ -115,13 +117,25 @@ uv run airs run TASK.yaml
 uv run airs review TASK.yaml
 uv run airs verify TASK.yaml
 uv run airs status --root /path/to/project
+uv run airs doctor
 ```
 
 `plan`, `run`, and `review` accept `--provider codex|antigravity`, `--tier light|medium|high|ultra`, and `--no-review`. Provider and tier mappings live in `airs.yaml`. A lower tier or `--no-review` cannot weaken a high-risk policy minimum. Use `--dry-run` with `run`, `review`, or `verify` to inspect behavior without invoking an agent or verification command.
 
-`run` executes the selected provider and, when required, invokes the other provider in read-only/plan mode for independent review. It then runs Task Contract verification commands and any `--verify-cmd` arguments. `verify` reruns Task Contract commands directly without a shell. Each operation records its decision, command, result, output, and timing under the target project's `.airs/history/`; this directory may contain sensitive task output and is ignored only when the target repository excludes it.
+`run` executes the selected provider and, when required, invokes the other provider in read-only/plan mode for independent review. AIRS snapshots existing Git changes before the primary run and reviews only files newly changed by that run. `verify` reruns Task Contract commands directly without a shell. Verification still runs if the review fails; the final status reports review and verification failures separately. Each operation records its decision, command, result, output, and timing under the target project's `.airs/history/`; this directory may contain sensitive task output and is ignored only when the target repository excludes it.
 
-Antigravity reviews use plan mode and a terminal sandbox. AIRS asks the reviewer to inspect files with workspace-reading tools instead of shell commands. The review has a 120-second limit by default (`providers.antigravity.review_timeout_seconds` in `airs.yaml`). AIRS treats a denied action, empty response, or non-success JSON status as a failed review even if `agy` exits with code 0; a successful review prints the response text rather than the raw JSON envelope. If a review genuinely needs a terminal command, add only a narrowly scoped `permissions.allow` rule in Antigravity's global `~/.gemini/antigravity-cli/settings.json`; those rules apply beyond AIRS, so review their scope carefully. Do not use `--dangerously-skip-permissions` for routine reviews.
+To retry a review without rerunning the primary agent or Jev, use `airs review --run-id RUN_ID` from the target repository. The run history records the review file list and hashes so a later edit cannot silently change its scope. Older runs without that list use current Git changes. For an ad-hoc review, use repeatable `--file PATH` arguments; otherwise AIRS uses current changed files and refuses a repository-wide scan. The default maximum is 12 files (`review.max_files`). Deleted files are not yet reviewable through this file-only workflow. `airs status --run-id RUN_ID` shows a specific run.
+
+```bash
+airs review --run-id RUN_ID --provider antigravity
+airs review -p "Check this documentation update" --file docs/PROJECT_OVERVIEW.md --file README.md --provider antigravity
+```
+
+Antigravity reviews use plan mode and a terminal sandbox. AIRS asks the reviewer to inspect files with workspace-reading tools instead of shell commands. The review has a 120-second limit by default (`providers.antigravity.review_timeout_seconds` in `airs.yaml`), plus limits of 20 tool calls and 120,000 input tokens. AIRS reads `stream-json` progress events to display file reads and token usage, and stops a runaway review at its limits. A denied action, timeout, empty response, or non-success status fails the review even if `agy` exits with code 0. If a review genuinely needs a terminal command, add only a narrowly scoped `permissions.allow` rule in Antigravity's global `~/.gemini/antigravity-cli/settings.json`; those rules apply beyond AIRS, so review their scope carefully. Do not use `--dangerously-skip-permissions` for routine reviews.
+
+`airs doctor` checks the configured Jev key without printing it, verifies the provider CLIs, probes Codex login status, and compares configured Antigravity models with `agy models`. `airs doctor --offline` skips login/catalog probes. Codex model availability is not automatically verified; check the CLI `/model` picker if a selected model is rejected.
+
+History files are written atomically with owner-only file permissions. `airs history prune` previews runs older than `history_retention_days` (30 by default); add `--apply` to remove those exact run directories. `airs history scrub RUN_ID` previews removal of task text, commands, agent output, and rationale from one record; add `--apply` to redact it. Scrubbed runs cannot be used with `review --run-id`. These actions are never automatic.
 
 In an interactive terminal, `run` and `review` show the active agent stage immediately and report elapsed time every 10 seconds. Agent output is printed at the end of the run and retained in history. Machine-readable `--json` output omits progress messages.
 
@@ -228,4 +242,4 @@ Tests mock the Jev transport and use adapter dry runs, so they neither consume J
 
 ## Status
 
-AIRS v0.3.2 is a local-first orchestration reference implementation. The provider model names in `airs.yaml` are deliberately configurable because availability can vary by subscription and CLI release. Production hardening should add retention/redaction controls for history, labeled routing evaluations, retries with backoff, and provider capability discovery.
+AIRS v0.4.0 is a local-first orchestration reference implementation. Provider model names remain configurable because availability can vary by subscription and CLI release. Future work includes labeled routing evaluations, retries with backoff, richer provider capability discovery, and diff-aware review of deleted files.

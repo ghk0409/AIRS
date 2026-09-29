@@ -9,8 +9,10 @@ import yaml
 
 
 DEFAULT_CONFIG: dict[str, Any] = {
-    "version": "0.3.2",
+    "version": "0.4.0",
     "history_dir": ".airs/history",
+    "history_retention_days": 30,
+    "review": {"max_files": 12},
     "routing": {
         "default_provider": "codex",
         "confidence_threshold": 0.72,
@@ -35,6 +37,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "antigravity": {
             "command": ["agy"],
             "review_timeout_seconds": 120,
+            "review_max_tool_calls": 20,
+            "review_max_input_tokens": 120000,
             "tiers": {
                 "light": {"model": "gemini-3.8-flash-low", "effort": "low"},
                 "medium": {"model": "gemini-3.8-flash-medium", "effort": "medium"},
