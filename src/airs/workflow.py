@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 import shlex
@@ -17,12 +18,19 @@ class Workflow:
     def __init__(self, config: dict[str, Any]) -> None:
         self.config = config
 
-    def run(self, task: TaskContract, decision: RouteDecision, dry_run: bool = False) -> dict[str, Any]:
+    def run(
+        self,
+        task: TaskContract,
+        decision: RouteDecision,
+        dry_run: bool = False,
+        progress: Callable[[str, float], None] | None = None,
+    ) -> dict[str, Any]:
         history = RunHistory(task.project_root, str(self.config["history_dir"]))
         run_id, record = history.create(task.to_dict(), decision.to_dict(), "run")
         try:
             primary = adapter_for(decision.provider, self.config).execute(
-                decision, task.project_root, task_prompt(task), dry_run=dry_run
+                decision, task.project_root, task_prompt(task), dry_run=dry_run,
+                progress=(lambda elapsed: progress("primary", elapsed)) if progress else None,
             )
             record["steps"].append({"name": "primary", **primary.to_dict()})
             if not primary.ok:
@@ -36,6 +44,7 @@ class Workflow:
                     review_prompt(task),
                     review=True,
                     dry_run=dry_run,
+                    progress=(lambda elapsed: progress("cross_model_review", elapsed)) if progress else None,
                 )
                 record["steps"].append({"name": "cross_model_review", **review.to_dict()})
                 status = "completed" if review.ok else "review_failed"
@@ -54,7 +63,12 @@ class Workflow:
             raise
 
     def review(
-        self, task: TaskContract, decision: RouteDecision, provider: Provider | None, dry_run: bool = False
+        self,
+        task: TaskContract,
+        decision: RouteDecision,
+        provider: Provider | None,
+        dry_run: bool = False,
+        progress: Callable[[str, float], None] | None = None,
     ) -> dict[str, Any]:
         reviewer = provider or (
             Provider.ANTIGRAVITY if decision.provider == Provider.CODEX else Provider.CODEX
@@ -64,7 +78,8 @@ class Workflow:
         run_id, record = history.create(task.to_dict(), review_decision.to_dict(), "review")
         try:
             result = adapter_for(reviewer, self.config).execute(
-                review_decision, task.project_root, review_prompt(task), review=True, dry_run=dry_run
+                review_decision, task.project_root, review_prompt(task), review=True, dry_run=dry_run,
+                progress=(lambda elapsed: progress("review", elapsed)) if progress else None,
             )
             record["steps"].append({"name": "review", **result.to_dict()})
             history.finish(run_id, record, "completed" if result.ok else "failed")

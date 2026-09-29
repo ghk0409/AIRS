@@ -20,7 +20,7 @@ providers:
       high: {model: gpt-5.6-sol, effort: high}
       ultra: {model: gpt-6-astra, effort: xhigh}
   antigravity:
-    command: [agy, --print]
+    command: [agy]
     # Adjust model names to those enabled for the signed-in Google account.
     tiers:
       light: {model: gemini-3.8-flash-low, effort: low}

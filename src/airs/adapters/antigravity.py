@@ -12,7 +12,10 @@ class AntigravityAdapter(AgentAdapter):
     def build_command(
         self, decision: RouteDecision, root: Path, prompt: str, review: bool = False
     ) -> tuple[list[str], str | None]:
-        command = [str(part) for part in self.config.get("command", ["agy", "--print"])]
+        command = [str(part) for part in self.config.get("command", ["agy"])]
+        # agy consumes the next argument after --print as its prompt. Attach the
+        # prompt with '=' so another flag can never be mistaken for prompt text.
+        command = [part for part in command if part not in {"--print", "-p", "--prompt"}]
         command.extend(
             [
                 "--output-format",
@@ -23,7 +26,7 @@ class AntigravityAdapter(AgentAdapter):
                 str(decision.effort),
                 "--mode",
                 "plan" if review else "accept-edits",
-                prompt,
+                f"--print={prompt}",
             ]
         )
         return command, None

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 import os
 import shutil
 import subprocess
+import tempfile
 import time
 
 from ..models import Provider, RouteDecision
@@ -56,6 +58,7 @@ class AgentAdapter:
         prompt: str,
         review: bool = False,
         dry_run: bool = False,
+        progress: Callable[[float], None] | None = None,
     ) -> AgentResult:
         command, stdin = self.build_command(decision, root, prompt, review)
         executable = command[0]
@@ -64,21 +67,53 @@ class AgentAdapter:
         if dry_run:
             return AgentResult(self.provider.value, self.history_command(command), 0, "", "", 0.0, True)
         started = time.monotonic()
-        completed = subprocess.run(
-            command,
-            input=stdin,
-            text=True,
-            capture_output=True,
-            cwd=root,
-            check=False,
-            env=subscription_environment(set(self.config.get("blocked_env", []))),
-        )
+        interval = max(float(self.config.get("progress_interval_seconds", 10)), 0.1)
+        with (
+            tempfile.TemporaryFile(mode="w+t", encoding="utf-8") as stdout_file,
+            tempfile.TemporaryFile(mode="w+t", encoding="utf-8") as stderr_file,
+            tempfile.TemporaryFile(mode="w+t", encoding="utf-8") as stdin_file,
+        ):
+            if stdin is not None:
+                stdin_file.write(stdin)
+                stdin_file.seek(0)
+            process = subprocess.Popen(
+                command,
+                stdin=stdin_file if stdin is not None else subprocess.DEVNULL,
+                stdout=stdout_file,
+                stderr=stderr_file,
+                text=True,
+                cwd=root,
+                env=subscription_environment(set(self.config.get("blocked_env", []))),
+            )
+            try:
+                if progress:
+                    progress(0.0)
+                while True:
+                    try:
+                        returncode = process.wait(timeout=interval)
+                        break
+                    except subprocess.TimeoutExpired:
+                        if progress:
+                            progress(time.monotonic() - started)
+            except BaseException:
+                if process.poll() is None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
+                raise
+            stdout_file.seek(0)
+            stderr_file.seek(0)
+            stdout = stdout_file.read()
+            stderr = stderr_file.read()
         return AgentResult(
             self.provider.value,
             self.history_command(command),
-            completed.returncode,
-            completed.stdout,
-            completed.stderr,
+            returncode,
+            stdout,
+            stderr,
             time.monotonic() - started,
         )
 

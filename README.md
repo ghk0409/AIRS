@@ -121,6 +121,8 @@ uv run airs status --root /path/to/project
 
 `run` executes the selected provider and, when required, invokes the other provider in read-only/plan mode for independent review. It then runs Task Contract verification commands and any `--verify-cmd` arguments. `verify` reruns Task Contract commands directly without a shell. Each operation records its decision, command, result, output, and timing under the target project's `.airs/history/`; this directory may contain sensitive task output and is ignored only when the target repository excludes it.
 
+In an interactive terminal, `run` and `review` show the active agent stage immediately and report elapsed time every 10 seconds. Agent output is printed at the end of the run and retained in history. Machine-readable `--json` output omits progress messages.
+
 ## What is included
 
 ```text

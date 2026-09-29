@@ -81,10 +81,11 @@ def main(argv: list[str] | None = None) -> int:
             _print(decision.to_dict(), args.json)
             return 0
         workflow = Workflow(config)
+        progress = _progress if sys.stderr.isatty() and not args.json else None
         record = (
-            workflow.run(task, decision, args.dry_run)
+            workflow.run(task, decision, args.dry_run, progress=progress)
             if args.command == "run"
-            else workflow.review(task, decision, overrides.provider, args.dry_run)
+            else workflow.review(task, decision, overrides.provider, args.dry_run, progress=progress)
         )
         _print(record, args.json)
         return 0 if record["status"] == "completed" else 1
@@ -114,6 +115,13 @@ def _print(data: dict[str, Any], as_json: bool) -> None:
     print(f"source: {data['source']}")
     for reason in data.get("rationale", []):
         print(f"- {reason}")
+
+
+def _progress(stage: str, elapsed: float) -> None:
+    if elapsed == 0:
+        print(f"{stage}: started", file=sys.stderr, flush=True)
+    else:
+        print(f"{stage}: still running ({elapsed:.0f}s)", file=sys.stderr, flush=True)
 
 
 if __name__ == "__main__":
