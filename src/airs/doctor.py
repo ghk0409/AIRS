@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+import json
 import shutil
 import subprocess
 
@@ -38,6 +39,8 @@ def diagnose(config: dict[str, Any], root: Path, *, offline: bool = False) -> di
             )
             ok = result.returncode == 0
             checks.append({"name": f"{provider}_login", "ok": ok, "detail": "available" if ok else "check CLI login"})
+            if provider == "codex" and ok:
+                checks.append(_codex_model_check(config, root, command[0], env_name))
             if provider == "antigravity" and ok:
                 catalog = result.stdout + result.stderr
                 missing = sorted(set(models) - {model for model in models if model in catalog})
@@ -48,3 +51,38 @@ def diagnose(config: dict[str, Any], root: Path, *, offline: bool = False) -> di
         except (OSError, subprocess.TimeoutExpired):
             checks.append({"name": f"{provider}_login", "ok": False, "detail": "probe timed out or failed"})
     return {"ok": all(item["ok"] for item in checks), "checks": checks}
+
+
+def _codex_model_check(config: dict[str, Any], root: Path, executable: str, env_name: str) -> dict[str, Any]:
+    """Check the logged-in CLI catalog, not the unrelated API model catalog."""
+    try:
+        result = subprocess.run(
+            [executable, "debug", "models"], cwd=root, capture_output=True, text=True,
+            timeout=30, env=subscription_environment({env_name}), check=False,
+        )
+        if result.returncode:
+            raise ValueError("catalog command failed; update Codex CLI or check login")
+        payload = json.loads(result.stdout)
+        if not isinstance(payload, dict):
+            raise ValueError("CLI returned an invalid model catalog")
+        entries = payload.get("models")
+        if not isinstance(entries, list):
+            raise ValueError("CLI returned an invalid model catalog")
+        visible = {
+            entry["slug"]: {level["effort"] for level in entry.get("supported_reasoning_levels", [])}
+            for entry in entries if isinstance(entry, dict) and entry.get("visibility") == "list"
+        }
+        missing = []
+        for tier in ModelTier:
+            mapping = provider_tier(config, "codex", tier.value)
+            model, effort = mapping["model"], mapping["effort"]
+            if model not in visible:
+                missing.append(f"{tier.value}: {model} not listed")
+            elif effort not in visible[model]:
+                missing.append(f"{tier.value}: {model} does not list effort {effort}")
+        return {
+            "name": "codex_models", "ok": not missing,
+            "detail": "available" if not missing else "; ".join(missing),
+        }
+    except (OSError, subprocess.TimeoutExpired, ValueError, KeyError, TypeError) as exc:
+        return {"name": "codex_models", "ok": False, "detail": f"catalog unavailable: {exc}"}

@@ -9,7 +9,7 @@ import yaml
 
 
 DEFAULT_CONFIG: dict[str, Any] = {
-    "version": "0.4.0",
+    "version": "0.4.1",
     "history_dir": ".airs/history",
     "history_retention_days": 30,
     "review": {"max_files": 12},

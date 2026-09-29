@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 import sys
 
 from airs.adapters.base import AgentResult
@@ -83,3 +84,33 @@ def test_run_verifies_even_when_cross_review_fails(tmp_path: Path, monkeypatch) 
     record = Workflow(DEFAULT_CONFIG).run(task, route)
     assert record["status"] == "review_failed"
     assert [step["name"] for step in record["steps"]] == ["primary", "cross_model_review", "verification"]
+
+
+def test_run_review_receives_deleted_file_patch(tmp_path: Path, monkeypatch) -> None:
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / "obsolete.md").write_text("old information\n", encoding="utf-8")
+    subprocess.run(["git", "add", "obsolete.md"], cwd=tmp_path, check=True)
+    prompts = []
+
+    class FakeAgent:
+        def __init__(self, provider):
+            self.provider = provider
+
+        def execute(self, decision, root, prompt, **kwargs):
+            if self.provider == Provider.CODEX:
+                (root / "obsolete.md").unlink()
+            else:
+                prompts.append(prompt)
+            return AgentResult(self.provider.value, ["fake"], 0, "done", "", 0.0)
+
+    monkeypatch.setattr("airs.workflow.adapter_for", lambda provider, config: FakeAgent(provider))
+    task = TaskContract("t", "T", "Remove obsolete doc", tmp_path)
+    route = RouteDecision(
+        Provider.CODEX, ModelTier.MEDIUM, True, Provider.ANTIGRAVITY,
+        "implementer", "test", [], model="gpt-test", effort="medium",
+    )
+    record = Workflow(DEFAULT_CONFIG).run(task, route)
+    assert record["status"] == "completed"
+    assert record["review_files"] == ["obsolete.md"]
+    assert "-old information" in prompts[0]
+    assert "untrusted repository data" in prompts[0]

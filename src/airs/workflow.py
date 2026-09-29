@@ -12,7 +12,7 @@ from .config import provider_tier
 from .history import RunHistory
 from .models import Provider, RouteDecision, TaskContract
 from .prompts import review_prompt, task_prompt
-from .review_scope import changed_files, changed_since, file_hashes, selected_files, snapshot_changed_files
+from .review_scope import changed_files, changed_since, deleted_diff, file_hashes, selected_files, snapshot_changed_files
 
 
 class Workflow:
@@ -53,9 +53,12 @@ class Workflow:
                     record["review_error"] = str(exc)
             record["review_files"] = review_files
             if not dry_run:
-                record["review_file_hashes"] = file_hashes(task.project_root, review_files)
+                try:
+                    record["review_file_hashes"] = file_hashes(task.project_root, review_files)
+                except ValueError as exc:
+                    record["review_error"] = str(exc)
             if decision.review and decision.reviewer:
-                if not review_files or len(review_files) > self._max_review_files():
+                if record.get("review_error") or not review_files or len(review_files) > self._max_review_files():
                     record["review_error"] = record.get("review_error") or (
                         "no changed files to review" if not review_files else
                         f"{len(review_files)} changed files exceed review limit {self._max_review_files()}"
@@ -63,13 +66,18 @@ class Workflow:
                     status = "review_failed"
                 else:
                     reviewer_decision = self._reviewer_decision(decision)
-                    review = adapter_for(decision.reviewer, self.config).execute(
-                        reviewer_decision, task.project_root, review_prompt(task, review_files),
-                        review=True, dry_run=dry_run,
-                        progress=(lambda elapsed, metrics=None: progress("cross_model_review", elapsed, metrics)) if progress else None,
-                    )
-                    record["steps"].append({"name": "cross_model_review", **review.to_dict()})
-                    status = "completed" if review.ok else "review_failed"
+                    try:
+                        patch = "" if dry_run else deleted_diff(task.project_root, review_files)
+                        review = adapter_for(decision.reviewer, self.config).execute(
+                            reviewer_decision, task.project_root, review_prompt(task, review_files, patch),
+                            review=True, dry_run=dry_run,
+                            progress=(lambda elapsed, metrics=None: progress("cross_model_review", elapsed, metrics)) if progress else None,
+                        )
+                        record["steps"].append({"name": "cross_model_review", **review.to_dict()})
+                        status = "completed" if review.ok else "review_failed"
+                    except ValueError as exc:
+                        record["review_error"] = str(exc)
+                        status = "review_failed"
             else:
                 status = "completed"
             if task.verification.commands:
@@ -110,7 +118,9 @@ class Workflow:
             if source_run_id:
                 record["source_run_id"] = source_run_id
             result = adapter_for(reviewer, self.config).execute(
-                review_decision, task.project_root, review_prompt(task, review_files), review=True, dry_run=dry_run,
+                review_decision, task.project_root,
+                review_prompt(task, review_files, "" if dry_run else deleted_diff(task.project_root, review_files)),
+                review=True, dry_run=dry_run,
                 progress=(lambda elapsed, metrics=None: progress("review", elapsed, metrics)) if progress else None,
             )
             record["steps"].append({"name": "review", **result.to_dict()})
