@@ -34,6 +34,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         },
         "antigravity": {
             "command": ["agy"],
+            "review_timeout_seconds": 120,
             "tiers": {
                 "light": {"model": "gemini-3.8-flash-low", "effort": "low"},
                 "medium": {"model": "gemini-3.8-flash-medium", "effort": "medium"},

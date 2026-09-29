@@ -104,9 +104,12 @@ def _print(data: dict[str, Any], as_json: bool) -> None:
         for step in data.get("steps", []):
             suffix = " (dry run)" if step.get("dry_run") else ""
             print(f"{step['name']}: returncode={step['returncode']}{suffix}")
-            if step.get("stdout"):
-                print(step["stdout"].rstrip())
-            if step["returncode"] != 0 and step.get("stderr"):
+            output = step.get("response") if step.get("provider") == "antigravity" else step.get("stdout")
+            if output:
+                print(output.rstrip())
+            if not step.get("ok", step["returncode"] == 0) and step.get("error"):
+                print(step["error"], file=sys.stderr)
+            if not step.get("ok", step["returncode"] == 0) and step.get("stderr"):
                 print(step["stderr"].rstrip(), file=sys.stderr)
         return
     print(f"provider: {data['provider']}")

@@ -121,6 +121,8 @@ uv run airs status --root /path/to/project
 
 `run` executes the selected provider and, when required, invokes the other provider in read-only/plan mode for independent review. It then runs Task Contract verification commands and any `--verify-cmd` arguments. `verify` reruns Task Contract commands directly without a shell. Each operation records its decision, command, result, output, and timing under the target project's `.airs/history/`; this directory may contain sensitive task output and is ignored only when the target repository excludes it.
 
+Antigravity reviews use plan mode and a terminal sandbox. AIRS asks the reviewer to inspect files with workspace-reading tools instead of shell commands. The review has a 120-second limit by default (`providers.antigravity.review_timeout_seconds` in `airs.yaml`). AIRS treats a denied action, empty response, or non-success JSON status as a failed review even if `agy` exits with code 0; a successful review prints the response text rather than the raw JSON envelope. If a review genuinely needs a terminal command, add only a narrowly scoped `permissions.allow` rule in Antigravity's global `~/.gemini/antigravity-cli/settings.json`; those rules apply beyond AIRS, so review their scope carefully. Do not use `--dangerously-skip-permissions` for routine reviews.
+
 In an interactive terminal, `run` and `review` show the active agent stage immediately and report elapsed time every 10 seconds. Agent output is printed at the end of the run and retained in history. Machine-readable `--json` output omits progress messages.
 
 ## What is included

@@ -37,3 +37,23 @@ def test_run_reports_failed_post_verification(tmp_path: Path, monkeypatch) -> No
     assert record["status"] == "verification_failed"
     assert [step["name"] for step in record["steps"]] == ["primary", "verification"]
     assert record["steps"][-1]["returncode"] == 1
+
+
+def test_review_reports_soft_denied_agent_as_failed(tmp_path: Path, monkeypatch) -> None:
+    class DeniedAgent:
+        def execute(self, *args, **kwargs):
+            return AgentResult(
+                "antigravity", ["agy"], 0, "", "permission denied", 1.0,
+                error="Antigravity denied one or more actions; review is incomplete",
+            )
+
+    monkeypatch.setattr("airs.workflow.adapter_for", lambda *args: DeniedAgent())
+    task = TaskContract("t", "T", "Review work", tmp_path)
+    route = RouteDecision(
+        Provider.CODEX, ModelTier.MEDIUM, True, Provider.ANTIGRAVITY,
+        "implementer", "test", [], model="gpt-test", effort="medium",
+    )
+    record = Workflow(DEFAULT_CONFIG).review(task, route, Provider.ANTIGRAVITY)
+    assert record["status"] == "failed"
+    assert record["steps"][0]["returncode"] == 0
+    assert record["steps"][0]["ok"] is False

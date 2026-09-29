@@ -22,10 +22,12 @@ class AgentResult:
     stderr: str
     duration_seconds: float
     dry_run: bool = False
+    response: str | None = None
+    error: str | None = None
 
     @property
     def ok(self) -> bool:
-        return self.returncode == 0
+        return self.returncode == 0 and self.error is None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -36,6 +38,8 @@ class AgentResult:
             "stderr": self.stderr,
             "duration_seconds": self.duration_seconds,
             "dry_run": self.dry_run,
+            "response": self.response,
+            "error": self.error,
             "ok": self.ok,
         }
 

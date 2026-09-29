@@ -21,6 +21,7 @@ providers:
       ultra: {model: gpt-6-astra, effort: xhigh}
   antigravity:
     command: [agy]
+    review_timeout_seconds: 120
     # Adjust model names to those enabled for the signed-in Google account.
     tiers:
       light: {model: gemini-3.8-flash-low, effort: low}
