@@ -101,6 +101,8 @@ cd /path/to/target-repository
 airs run -p "Add a regression test for the login bug" --verify-cmd "git diff --check"
 ```
 
+When updating an existing installation from this checkout, run `uv tool install --force --reinstall .` in the AIRS repository. `--force` alone can reuse a cached wheel for the same package version. If a target repository has its own `airs.yaml`, check its `routing.jev.endpoint` and `routing.jev.model` too: that local file overrides AIRS's built-in defaults.
+
 The inline request creates a temporary Task Contract in memory using the current directory as `project_root`. `run` plans the route, runs the selected agent, performs any policy-required cross-model review, and runs configured verification commands. `--verify-cmd` can be repeated. The key environment variable remains available to AIRS but is removed from the subprocess environments of Codex and agy. Add `.airs/` to the target repository's `.gitignore` because run history is stored there.
 
 Use `airs plan -p "..."` to inspect routing without running an agent. `airs run -p "..." --dry-run` shows the planned commands. For projects outside the current directory, pass `--root /path/to/project` with `-p`. A detailed Task Contract file is optional and remains useful for repeatable work, constraints, acceptance criteria, and shared verification rules. `examples/task.yaml` demonstrates the format; its README typo request is not tied to a known typo, so create a real task before running it.
