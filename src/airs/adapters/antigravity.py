@@ -37,7 +37,7 @@ class AntigravityAdapter(AgentAdapter):
         )
         if review:
             command.append("--sandbox")
-            command.extend(["--print-timeout", f"{int(self.config.get('review_timeout_seconds', 120))}s"])
+            command.extend(["--print-timeout", f"{int(self.config.get('review_timeout_seconds', 600))}s"])
             prompt += (
                 "\n\nFor this read-only review, use workspace file-reading tools to inspect "
                 "the relevant files. Do not run terminal commands or request write "
@@ -94,7 +94,7 @@ class AntigravityAdapter(AgentAdapter):
         if shutil.which(command[0]) is None:
             raise RuntimeError(f"provider CLI is not installed or not on PATH: {command[0]}")
         started = time.monotonic()
-        timeout = max(1, int(self.config.get("review_timeout_seconds", 120))) + 15
+        timeout = max(1, int(self.config.get("review_timeout_seconds", 600))) + 15
         max_tools = max(1, int(self.config.get("review_max_tool_calls", 20)))
         max_tokens = max(1, int(self.config.get("review_max_input_tokens", 120000)))
         process = subprocess.Popen(

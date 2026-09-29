@@ -1,8 +1,8 @@
-# AIRS v0.4.1 Repository
+# AIRS v0.4.2 Repository
 
 ## Purpose
 
-This repository contains the AIRS standard, reusable templates, stack profiles, canonical skills, and the v0.4.1 local orchestration CLI.
+This repository contains the AIRS standard, reusable templates, stack profiles, canonical skills, and the v0.4.2 local orchestration CLI.
 
 ## Start
 

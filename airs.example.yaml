@@ -1,4 +1,4 @@
-version: "0.4.1"
+version: "0.4.2"
 
 organization:
   name: "{{ORGANIZATION_NAME}}"
@@ -59,7 +59,7 @@ providers:
       ultra: {model: "gpt-6-astra", effort: "xhigh"}
   antigravity:
     command: ["agy"]
-    review_timeout_seconds: 120
+    review_timeout_seconds: 600
     review_max_tool_calls: 20
     review_max_input_tokens: 120000
     tiers:

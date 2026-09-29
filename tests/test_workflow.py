@@ -5,6 +5,7 @@ import sys
 from airs.adapters.base import AgentResult
 from airs.config import DEFAULT_CONFIG
 from airs.models import ModelTier, Provider, RouteDecision, TaskContract
+from airs.prompts import review_prompt, task_prompt
 from airs.workflow import Workflow
 
 
@@ -18,6 +19,13 @@ def test_dry_run_saves_primary_and_cross_model_review(tmp_path: Path) -> None:
     assert record["status"] == "completed"
     assert [step["provider"] for step in record["steps"]] == ["codex", "antigravity"]
     assert (tmp_path / ".airs" / "history" / record["run_id"] / "record.json").exists()
+
+
+def test_primary_prompt_routes_project_docs_without_expanding_review(tmp_path: Path) -> None:
+    task = TaskContract("t", "T", "Do work", tmp_path)
+    assert "root AGENTS.md" in task_prompt(task)
+    assert "tasks/CURRENT.md" in task_prompt(task)
+    assert "Project context:" not in review_prompt(task, ["README.md"])
 
 
 def test_run_reports_failed_post_verification(tmp_path: Path, monkeypatch) -> None:

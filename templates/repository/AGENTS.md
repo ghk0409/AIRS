@@ -30,6 +30,7 @@ Stack: {{PRIMARY_STACK}}
 ## Map
 
 - Current state: `tasks/CURRENT.md`
+- Project metadata: `airs.project.yaml` (not CLI configuration)
 - Architecture: `docs/ARCHITECTURE.md`
 - Active specs: `specs/active/`
 - ADRs: `docs/adr/`

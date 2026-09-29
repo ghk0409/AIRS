@@ -1,6 +1,8 @@
-# AIRS v0.4.1
+# AIRS v0.4.2
 
 [한국어 README](README.ko.md)
+
+[Project adoption guide (Korean)](PROJECT_ADOPTION.ko.md)
 
 AIRS (AI-native Repository Standard) combines the original agent-agnostic repository convention with a local CLI that routes work to subscription-backed Codex and Antigravity agents. It does not call the OpenAI or Gemini developer APIs.
 
@@ -8,7 +10,7 @@ Its central rule is:
 
 > Context belongs to the narrowest scope that owns it.
 
-The repository is the source of truth. Chat history is temporary working context, not project memory. The v0.1 standard remains the compatibility baseline; v0.4.1 adds deleted-file review and Codex model checks without weakening those rules.
+The repository is the source of truth. Chat history is temporary working context, not project memory. The v0.1 standard remains the compatibility baseline; v0.4.2 improves per-project adoption and long-review configuration without weakening those rules.
 
 ## Orchestration
 
@@ -122,7 +124,7 @@ uv run airs doctor
 
 `plan`, `run`, and `review` accept `--provider codex|antigravity`, `--tier light|medium|high|ultra`, and `--no-review`. Provider and tier mappings live in `airs.yaml`. A lower tier or `--no-review` cannot weaken a high-risk policy minimum. Use `--dry-run` with `run`, `review`, or `verify` to inspect behavior without invoking an agent or verification command.
 
-`run` executes the selected provider and, when required, invokes the other provider in read-only/plan mode for independent review. AIRS snapshots existing Git changes before the primary run and reviews only files newly changed by that run. `verify` reruns Task Contract commands directly without a shell. Verification still runs if the review fails; the final status reports review and verification failures separately. Each operation records its decision, command, result, output, and timing under the target project's `.airs/history/`; this directory may contain sensitive task output and is ignored only when the target repository excludes it.
+`run` executes the selected provider and, when required, invokes the other provider in read-only/plan mode for independent review. The primary prompt asks the agent to consult the project's root `AGENTS.md` and task-relevant pointers; this does not expand the cross-model review scope. AIRS snapshots existing Git changes before the primary run and reviews only files newly changed by that run. `verify` reruns Task Contract commands directly without a shell. Verification still runs if the review fails; the final status reports review and verification failures separately. Each operation records its decision, command, result, output, and timing under the target project's `.airs/history/`; this directory may contain sensitive task output and is ignored only when the target repository excludes it.
 
 To retry a review without rerunning the primary agent or Jev, use `airs review --run-id RUN_ID` from the target repository. The run history records the review file list and hashes so a later edit cannot silently change its scope. Older runs without that list use current Git changes. For an ad-hoc review, use repeatable `--file PATH` arguments; otherwise AIRS uses current changed files and refuses a repository-wide scan. The default maximum is 12 files (`review.max_files`). Deleted Git files are reviewed through a bounded text patch; binary or oversized patches require separate review. `airs status --run-id RUN_ID` shows a specific run.
 
@@ -131,7 +133,7 @@ airs review --run-id RUN_ID --provider antigravity
 airs review -p "Check this documentation update" --file docs/PROJECT_OVERVIEW.md --file README.md --provider antigravity
 ```
 
-Antigravity reviews use plan mode and a terminal sandbox. AIRS asks the reviewer to inspect files with workspace-reading tools instead of shell commands. The review has a 120-second limit by default (`providers.antigravity.review_timeout_seconds` in `airs.yaml`), plus limits of 20 tool calls and 120,000 input tokens. AIRS reads `stream-json` progress events to display file reads and token usage, and stops a runaway review at its limits. A denied action, timeout, empty response, or non-success status fails the review even if `agy` exits with code 0. If a review genuinely needs a terminal command, add only a narrowly scoped `permissions.allow` rule in Antigravity's global `~/.gemini/antigravity-cli/settings.json`; those rules apply beyond AIRS, so review their scope carefully. Do not use `--dangerously-skip-permissions` for routine reviews.
+Antigravity reviews use plan mode and a terminal sandbox. AIRS asks the reviewer to inspect files with workspace-reading tools instead of shell commands. The review has a 600-second limit by default (`providers.antigravity.review_timeout_seconds` in `airs.yaml`), plus limits of 20 tool calls and 120,000 input tokens. A target project can override the timeout with a small local `airs.yaml`, as shown in [the example](examples/project-airs.yaml). AIRS reads `stream-json` progress events to display file reads and token usage, and stops a runaway review at its limits. A denied action, timeout, empty response, or non-success status fails the review even if `agy` exits with code 0. If a review genuinely needs a terminal command, add only a narrowly scoped `permissions.allow` rule in Antigravity's global `~/.gemini/antigravity-cli/settings.json`; those rules apply beyond AIRS, so review their scope carefully. Do not use `--dangerously-skip-permissions` for routine reviews.
 
 `airs doctor` checks the configured Jev key without printing it, verifies the provider CLIs, probes Codex login status, compares configured Codex models and effort levels with the logged-in CLI's visible catalog (`codex debug models`), and compares configured Antigravity models with `agy models`. `airs doctor --offline` skips login/catalog probes. The Codex catalog command is a debug interface that may change with CLI versions; an actual run remains the final access check.
 
@@ -173,7 +175,7 @@ Narrower rules override broader rules. A repository-specific skill may refine an
 
 ## Quick start: one repository
 
-1. Copy the contents of `templates/repository/` into the root of the target Git repository, including hidden files.
+1. Inspect the target repository's existing files, then merge only the needed contents of `templates/repository/` without overwriting local work. `airs.project.yaml` is optional project metadata; a separate `airs.yaml` controls the CLI.
 2. Copy only the needed skill folders from `.agents/skills/` into the target repository's `.agents/skills/` directory. Copy all seven for the default starter.
 3. Choose one profile under `profiles/`, then reference its name and location from the target `AGENTS.md`.
 4. Replace every `{{PLACEHOLDER}}` and remove unused template guidance.
@@ -182,12 +184,12 @@ Narrower rules override broader rules. A repository-specific skill may refine an
 Example:
 
 ```bash
-cp -R templates/repository/. /path/to/my-repo/
-mkdir -p /path/to/my-repo/.agents/skills
-cp -R .agents/skills/. /path/to/my-repo/.agents/skills/
+mkdir -p /path/to/my-repo/tasks
+cp -n templates/repository/AGENTS.md /path/to/my-repo/AGENTS.md
+cp -n templates/repository/tasks/CURRENT.md /path/to/my-repo/tasks/CURRENT.md
 ```
 
-Review changes before committing. Existing files in a target repository should be merged, not overwritten blindly.
+This example skips existing files; review and merge any existing project rules manually. Add architecture documents, profiles, and skills only as needed. See the [project adoption guide](PROJECT_ADOPTION.ko.md) for a worked example, the distinction between `airs.project.yaml` and CLI `airs.yaml`, and a per-project review timeout override.
 
 ## Quick start: multiple repositories
 
@@ -242,4 +244,4 @@ Tests mock the Jev transport and use adapter dry runs, so they neither consume J
 
 ## Status
 
-AIRS v0.4.1 is a local-first orchestration reference implementation. Deleted Git files are included in scoped review using a bounded text patch (30,000 characters); binary or larger deleted-file patches fail safely and require separate review. Provider model names remain configurable because availability can vary by subscription and CLI release. Future work includes labeled routing evaluations, retries with backoff, and richer provider capability discovery.
+AIRS v0.4.2 is a local-first orchestration reference implementation. Deleted Git files are included in scoped review using a bounded text patch (30,000 characters); binary or larger deleted-file patches fail safely and require separate review. Provider model names remain configurable because availability can vary by subscription and CLI release. Future work includes labeled routing evaluations, retries with backoff, and richer provider capability discovery.

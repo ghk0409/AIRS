@@ -9,7 +9,7 @@ import yaml
 
 
 DEFAULT_CONFIG: dict[str, Any] = {
-    "version": "0.4.1",
+    "version": "0.4.2",
     "history_dir": ".airs/history",
     "history_retention_days": 30,
     "review": {"max_files": 12},
@@ -36,7 +36,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         },
         "antigravity": {
             "command": ["agy"],
-            "review_timeout_seconds": 120,
+            "review_timeout_seconds": 600,
             "review_max_tool_calls": 20,
             "review_max_input_tokens": 120000,
             "tiers": {
@@ -67,6 +67,11 @@ def load_config(path: str | Path | None = None) -> dict[str, Any]:
     loaded = yaml.safe_load(candidate.read_text(encoding="utf-8")) or {}
     if not isinstance(loaded, dict):
         raise ValueError(f"configuration must be an object: {candidate}")
+    if "project" in loaded and "providers" not in loaded and "routing" not in loaded:
+        raise ValueError(
+            f"{candidate} looks like an AIRS project manifest, not CLI settings; "
+            "rename it to airs.project.yaml and use airs.yaml for CLI overrides"
+        )
     return _merge(DEFAULT_CONFIG, loaded)
 
 

@@ -33,7 +33,7 @@ def test_antigravity_review_is_plan_only() -> None:
     assert command.index("--output-format") < len(command) - 1
     assert command[command.index("--mode") + 1] == "plan"
     assert "--sandbox" in command
-    assert command[command.index("--print-timeout") + 1] == "120s"
+    assert command[command.index("--print-timeout") + 1] == "600s"
     assert "Do not run terminal commands" in command[-1]
     assert stdin is None
 

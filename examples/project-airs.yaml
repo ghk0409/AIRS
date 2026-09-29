@@ -1,0 +1,6 @@
+# Optional AIRS CLI overrides for one target repository.
+# Save as airs.yaml at that repository's root; never put API key values here.
+version: "0.4.2"
+providers:
+  antigravity:
+    review_timeout_seconds: 900
